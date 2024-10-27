@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>zirpo's blog</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>zirpo's blog</h1>
+        </header>
+        <main id="main-content">
+            <div id="post-content"></div>
+            <div id="posts-list"></div>
+        </main>
+    </div>
+
+    <script>
+        // Markdown parser functions
+        function parseMarkdown(text) {
+            // Headers
+            text = text.replace(/^#\s(.*)$/gm, '<h1>$1</h1>');
+            text = text.replace(/^##\s(.*)$/gm, '<h2>$1</h2>');
+            text = text.replace(/^###\s(.*)$/gm, '<h3>$1</h3>');
+
+            // Bold
+            text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+            // Italic
+            text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
+
+            // Images
+            text = text.replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1">');
+
+            // Links
+            text = text.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2">$1</a>');
+
+            // Lists
+            text = text.replace(/^\s*\*\s(.*)$/gm, '<li>$1</li>');
+            text = text.replace(/(<li>.*<\/li>)/g, '<ul>$1</ul>');
+
+            // Paragraphs
+            text = '<p>' + text.replace(/\n\n/g, '</p><p>') + '</p>';
+
+            return text;
+        }
+
+        function getPostTitle(content) {
+            const lines = content.split('\n');
+            for (const line of lines) {
+                if (line.startsWith('#')) {
+                    return line.replace('#', '').trim();
+                }
+            }
+            return 'Untitled Post';
+        }
+
+        function getPostExcerpt(content, length = 150) {
+            const textContent = content
+                .replace(/!\[.*?\]\(.*?\)/g, '') // Remove image markdown
+                .replace(/#/g, '') // Remove headers
+                .replace(/\*\*/g, '') // Remove bold
+                .replace(/\*/g, '') // Remove italic
+                .trim();
+            return textContent.substring(0, length) + '...';
+        }
+
+        // Navigation handling
+        function showPost(content) {
+            const postContent = document.getElementById('post-content');
+            postContent.innerHTML = parseMarkdown(content);
+            document.getElementById('posts-list').style.display = 'none';
+            
+            // Add back button
+            const backButton = document.createElement('p');
+            backButton.innerHTML = '<a href="#" onclick="showHome(); return false;">← Back to Home</a>';
+            postContent.insertBefore(backButton, postContent.firstChild);
+        }
+
+        function showHome() {
+            document.getElementById('post-content').innerHTML = '';
+            document.getElementById('posts-list').style.display = 'block';
+        }
+
+        // Load posts from markdown files
+        async function loadPosts() {
+            try {
+                const response = await fetch('posts.json');
+                const posts = await response.json();
+                
+                const postsList = document.getElementById('posts-list');
+                const latestPost = posts[0];
+
+                // Display latest post
+                const latestPostSection = document.createElement('section');
+                latestPostSection.className = 'latest-post';
+                latestPostSection.innerHTML = `
+                    <h2>${getPostTitle(latestPost.content)}</h2>
+                    <p>${getPostExcerpt(latestPost.content)}</p>
+                    <a href="#" class="read-more" onclick="showPost(\`${latestPost.content.replace(/`/g, '\\`')}\`); return false;">Read More</a>
+                `;
+                postsList.appendChild(latestPostSection);
+
+                // Display posts list
+                const postsHeader = document.createElement('h2');
+                postsHeader.textContent = 'Posts';
+                postsList.appendChild(postsHeader);
+
+                const ul = document.createElement('ul');
+                posts.forEach(post => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<a href="#" onclick="showPost(\`${post.content.replace(/`/g, '\\`')}\`); return false;">${getPostTitle(post.content)}</a>`;
+                    ul.appendChild(li);
+                });
+                postsList.appendChild(ul);
+            } catch (error) {
+                console.error('Error loading posts:', error);
+                document.getElementById('posts-list').innerHTML = '<p>Error loading posts. Please try again later.</p>';
+            }
+        }
+
+        // Initialize
+        window.onload = loadPosts;
+    </script>
+</body>
+</html>
